@@ -325,6 +325,7 @@ The `:id` value is the Employee record ID. Pagination starts at page `1`, and `l
 ## Environment variables
 
 - `PORT` - HTTP port; defaults to `3000`
+- `CORS_ORIGIN` - exact frontend origin allowed to call the API; defaults to `http://localhost:5173`
 - `DATABASE_URL` - PostgreSQL connection URL used by Prisma
 - `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` - Docker Compose database settings
 - `POSTGRES_PORT` - PostgreSQL host port used by Docker Compose; defaults to `5432`
@@ -334,3 +335,15 @@ The `:id` value is the Employee record ID. Pagination starts at page `1`, and `l
 
 The Node.js server runs directly on the host. Docker Compose starts only PostgreSQL.
 If port `5432` is already in use, change both `POSTGRES_PORT` and the port in `DATABASE_URL` to another value such as `5433`.
+
+For the deployed frontend, configure the backend with the origin only (no `/api` path):
+
+```dotenv
+CORS_ORIGIN=https://workforce.tharushadev.online
+```
+
+Configure the Vercel frontend separately with the full API base URL:
+
+```dotenv
+VITE_API_BASE_URL=https://api-workforce.tharushadev.online/api
+```
