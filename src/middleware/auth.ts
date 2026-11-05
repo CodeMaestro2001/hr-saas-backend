@@ -13,8 +13,8 @@ export const authenticate: RequestHandler = async (request, _response, next) => 
   }
 
   try {
-    const userId = authService.verifyAccessToken(match[1]);
-    const user = await authService.findUserById(userId);
+    const { userId, tokenVersion } = authService.verifyAccessToken(match[1]);
+    const user = await authService.findUserById(userId, tokenVersion);
 
     if (!user) {
       next(new AppError(401, "Invalid authentication"));

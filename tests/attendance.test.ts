@@ -38,6 +38,7 @@ const adminUser = {
   id: "2eb73bdb-a8a5-4bb9-a181-7dc8567d2508",
   email: "admin@example.com",
   role: Role.ADMIN,
+  tokenVersion: 0,
   employee: null,
 };
 
@@ -45,6 +46,7 @@ const employeeUser = {
   id: "ad1d9ca2-eaa9-4394-bdf8-ac73cec73c75",
   email: "employee@example.com",
   role: Role.EMPLOYEE,
+  tokenVersion: 0,
   employee: { isActive: true },
 };
 
@@ -69,7 +71,7 @@ const attendance = {
 };
 
 const createToken = (user: typeof adminUser | typeof employeeUser) => {
-  return jwt.sign({ role: user.role }, env.JWT_SECRET, {
+  return jwt.sign({ role: user.role, tokenVersion: user.tokenVersion }, env.JWT_SECRET, {
     algorithm: "HS256",
     subject: user.id,
     expiresIn: "1h",

@@ -1,4 +1,5 @@
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import express from "express";
 
 import { env } from "./config/env";
@@ -13,7 +14,9 @@ export const createApp = () => {
   const app = express();
 
   app.disable("x-powered-by");
+  app.set("trust proxy", 1);
   app.use(express.json());
+  app.use(cookieParser());
   app.use(
     cors({
       origin: (requestOrigin, callback) => {
@@ -21,6 +24,7 @@ export const createApp = () => {
       },
       methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
       allowedHeaders: ["Content-Type", "Authorization"],
+      credentials: true,
     }),
   );
 

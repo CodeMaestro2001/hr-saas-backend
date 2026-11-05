@@ -2,7 +2,7 @@
 
 A small backend-focused HR and workforce management API built with Node.js, TypeScript, Express, PostgreSQL, and Prisma.
 
-Phase 5 provides the application foundation, JWT authentication, employee management, leave management, and attendance management. Payroll, advanced shifts, multi-tenancy, and frontend features are intentionally not implemented.
+The API provides production session authentication, employee management, leave management, and attendance management. Payroll, advanced shifts, and multi-tenancy are intentionally not implemented.
 
 ## Requirements
 
@@ -94,7 +94,21 @@ Example response:
 }
 ```
 
-The token expires after one hour.
+The access token is short-lived (15 minutes by default). Login also sets a rotating refresh token as a `Secure`, `HttpOnly`, `SameSite=Strict` cookie scoped to `/api/auth`; the raw refresh token is never returned in JSON or stored in the database.
+
+### Session and password endpoints
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/api/auth/refresh` | Rotate the refresh cookie and issue a new access token |
+| `POST` | `/api/auth/logout` | Revoke the current refresh token and clear its cookie |
+| `POST` | `/api/auth/forgot-password` | Return a generic response and email a one-time reset link |
+| `POST` | `/api/auth/reset-password` | Consume a reset token, change the password, and revoke all sessions |
+| `POST` | `/api/auth/change-password` | Verify the current password, change it, and revoke all sessions |
+
+Access JWTs and password-reset tokens expire. Refresh and reset tokens are stored only as SHA-256 hashes. Successful rotation invalidates the prior refresh token; reuse of a revoked token revokes all remaining sessions for that user. Login is IP-rate-limited, failed attempts are audited, and repeated failures temporarily lock the account. Login and recovery responses are deliberately generic to reduce account enumeration.
+
+Browser clients must send requests with credentials enabled. `CORS_ORIGIN` must be the exact frontend origin; wildcard CORS is not compatible with credentialed requests.
 
 ### Current user
 
@@ -330,6 +344,12 @@ The `:id` value is the Employee record ID. Pagination starts at page `1`, and `l
 - `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` - Docker Compose database settings
 - `POSTGRES_PORT` - PostgreSQL host port used by Docker Compose; defaults to `5432`
 - `JWT_SECRET` - private JWT signing secret containing at least 32 characters
+- `ACCESS_TOKEN_TTL_MINUTES` - access-token lifetime; defaults to `15`
+- `REFRESH_TOKEN_TTL_DAYS` - refresh-token lifetime; defaults to `7`
+- `LOGIN_MAX_ATTEMPTS`, `LOGIN_LOCK_MINUTES` - account lockout threshold and duration
+- `PASSWORD_RESET_TTL_MINUTES` - one-time reset-link lifetime; defaults to `30`
+- `FRONTEND_URL` - public frontend origin used to build password reset links
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM` - reset-email delivery configuration
 - `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` - local admin seed credentials
 - `SEED_EMPLOYEE_EMAIL`, `SEED_EMPLOYEE_PASSWORD` - local employee seed credentials
 

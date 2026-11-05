@@ -1,9 +1,23 @@
 import { Router } from "express";
 
-import { getCurrentUser, login } from "../controllers/auth.controller";
+import {
+  changePassword,
+  forgotPassword,
+  getCurrentUser,
+  login,
+  logout,
+  refresh,
+  resetPassword,
+} from "../controllers/auth.controller";
 import { authenticate } from "../middleware/auth";
+import { loginRateLimit, passwordResetRateLimit } from "../middleware/auth-rate-limit";
 
 export const authRouter = Router();
 
-authRouter.post("/login", login);
+authRouter.post("/login", loginRateLimit, login);
+authRouter.post("/refresh", refresh);
+authRouter.post("/logout", logout);
+authRouter.post("/forgot-password", passwordResetRateLimit, forgotPassword);
+authRouter.post("/reset-password", passwordResetRateLimit, resetPassword);
+authRouter.post("/change-password", authenticate, changePassword);
 authRouter.get("/me", authenticate, getCurrentUser);

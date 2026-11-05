@@ -1,28 +1,120 @@
-import type { RequestHandler } from "express";
-import { z } from "zod";
+import type { CookieOptions, Request, RequestHandler, Response } from "express";
 
+import { env } from "../config/env";
 import * as authService from "../services/auth.service";
+import { AppError } from "../utils/app-error";
+import {
+  changePasswordSchema,
+  forgotPasswordSchema,
+  loginSchema,
+  resetPasswordSchema,
+} from "../validation/auth.validation";
 
-const loginSchema = z.object({
-  email: z.string().trim().email(),
-  password: z.string().min(1).max(256),
+const REFRESH_COOKIE_NAME = "workforce_refresh";
+const refreshCookieBaseOptions: CookieOptions = {
+  httpOnly: true,
+  secure: env.NODE_ENV === "production",
+  sameSite: "strict",
+  path: "/api/auth",
+};
+
+const getMetadata = (request: Request): authService.SessionMetadata => ({
+  ipAddress: request.ip,
+  userAgent: request.get("user-agent"),
 });
+
+const getRefreshCookie = (request: Request) => {
+  const value = request.cookies?.[REFRESH_COOKIE_NAME];
+  return typeof value === "string" ? value : undefined;
+};
+
+const setRefreshCookie = (response: Response, token: string) => {
+  response.cookie(REFRESH_COOKIE_NAME, token, {
+    ...refreshCookieBaseOptions,
+    maxAge: env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1_000,
+  });
+};
+
+const clearRefreshCookie = (response: Response) => {
+  response.clearCookie(REFRESH_COOKIE_NAME, refreshCookieBaseOptions);
+};
 
 export const login: RequestHandler = async (request, response) => {
   const result = loginSchema.safeParse(request.body);
-
   if (!result.success) {
     response.status(400).json({
-      error: {
-        message: "Invalid request body",
-        fields: result.error.flatten().fieldErrors,
-      },
+      error: { message: "Invalid request body", fields: result.error.flatten().fieldErrors },
     });
     return;
   }
 
-  const loginResult = await authService.login(result.data.email, result.data.password);
-  response.status(200).json(loginResult);
+  const session = await authService.login(
+    result.data.email,
+    result.data.password,
+    getMetadata(request),
+  );
+  setRefreshCookie(response, session.refreshToken);
+  response.status(200).json({ token: session.token, user: session.user });
+};
+
+export const refresh: RequestHandler = async (request, response) => {
+  const refreshToken = getRefreshCookie(request);
+  if (!refreshToken) throw new AppError(401, "Session refresh is required");
+
+  const session = await authService.refreshSession(refreshToken, getMetadata(request));
+  setRefreshCookie(response, session.refreshToken);
+  response.status(200).json({ token: session.token, user: session.user });
+};
+
+export const logout: RequestHandler = async (request, response) => {
+  await authService.revokeRefreshToken(getRefreshCookie(request));
+  clearRefreshCookie(response);
+  response.status(204).send();
+};
+
+export const forgotPassword: RequestHandler = async (request, response) => {
+  const result = forgotPasswordSchema.safeParse(request.body);
+  if (!result.success) {
+    response.status(400).json({
+      error: { message: "Invalid request body", fields: result.error.flatten().fieldErrors },
+    });
+    return;
+  }
+
+  const body = await authService.requestPasswordReset(result.data.email);
+  response.status(202).json(body);
+};
+
+export const resetPassword: RequestHandler = async (request, response) => {
+  const result = resetPasswordSchema.safeParse(request.body);
+  if (!result.success) {
+    response.status(400).json({
+      error: { message: "Invalid request body", fields: result.error.flatten().fieldErrors },
+    });
+    return;
+  }
+
+  await authService.resetPassword(result.data.token, result.data.newPassword);
+  clearRefreshCookie(response);
+  response.status(204).send();
+};
+
+export const changePassword: RequestHandler = async (request, response) => {
+  const result = changePasswordSchema.safeParse(request.body);
+  if (!result.success) {
+    response.status(400).json({
+      error: { message: "Invalid request body", fields: result.error.flatten().fieldErrors },
+    });
+    return;
+  }
+
+  await authService.changePassword(
+    request.user!.id,
+    result.data.currentPassword,
+    result.data.newPassword,
+  );
+  clearRefreshCookie(response);
+  response.status(204).send();
 };
 
 export const getCurrentUser: RequestHandler = (request, response) => {
