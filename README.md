@@ -347,3 +347,36 @@ Configure the Vercel frontend separately with the full API base URL:
 ```dotenv
 VITE_API_BASE_URL=https://api-workforce.tharushadev.online/api
 ```
+
+## GitHub Actions CI/CD
+
+The `Backend CI/CD` workflow validates pull requests and pushes with Prisma client generation, typechecking, tests, and a production build. A verified push to `main` then connects to the production VPS over SSH, fast-forwards the existing checkout to the exact tested commit, installs locked dependencies, builds, applies committed Prisma migrations, reloads the PM2 process, and verifies `/api/health` locally on the VPS.
+
+Create a GitHub environment named `production` and add these environment secrets:
+
+| Secret | Example/description |
+| --- | --- |
+| `VPS_HOST` | VPS hostname or IP address |
+| `VPS_SSH_PORT` | SSH port, commonly `22` |
+| `VPS_SSH_USER` | Non-root deployment user |
+| `VPS_APP_PATH` | Existing absolute repository path, for example `/var/www/workforce-api` |
+| `VPS_SSH_PRIVATE_KEY` | Private half of the dedicated CI deployment key |
+| `VPS_SSH_KNOWN_HOSTS` | Trusted host-key line produced by `ssh-keyscan -p <port> <host>` and verified against the VPS fingerprint |
+
+The deployment expects Node.js 20 or newer, npm, curl, Git, and PM2 on the VPS. The deployment user must be able to pull the private GitHub repository, write to `VPS_APP_PATH`, run PM2, and connect to the production database. Keep the production `.env` only on the VPS; it is ignored by Git and is not replaced during deployment.
+
+One-time PM2 boot persistence setup on the VPS:
+
+```bash
+sudo npm install --global pm2
+cd /var/www/workforce-api
+npm ci
+npm run prisma:generate
+npm run build
+pm2 startOrReload ecosystem.config.cjs --env production
+pm2 startup
+# Run the sudo command printed by PM2, then:
+pm2 save
+```
+
+For a private backend repository, add a separate read-only GitHub deploy key to the VPS so `git pull --ff-only origin main` works non-interactively. Do not reuse the GitHub Actions-to-VPS private key for repository access.

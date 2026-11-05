@@ -1,0 +1,112 @@
+name: Backend CI/CD
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  checks:
+    name: Typecheck, test, and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run prisma:generate
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  deploy:
+    name: Deploy to production VPS
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+      VPS_SSH_USER: ${{ secrets.VPS_SSH_USER }}
+      VPS_APP_PATH: ${{ secrets.VPS_APP_PATH }}
+      VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+      VPS_SSH_KNOWN_HOSTS: ${{ secrets.VPS_SSH_KNOWN_HOSTS }}
+      DEPLOY_SHA: ${{ github.sha }}
+
+    steps:
+      - name: Validate deployment configuration
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          for variable in VPS_HOST VPS_SSH_PORT VPS_SSH_USER VPS_APP_PATH VPS_SSH_PRIVATE_KEY VPS_SSH_KNOWN_HOSTS; do
+            if [[ -z "${!variable:-}" ]]; then
+              echo "Missing required production secret: $variable" >&2
+              exit 1
+            fi
+          done
+          [[ "$VPS_SSH_PORT" =~ ^[0-9]+$ ]] || { echo "VPS_SSH_PORT must be numeric" >&2; exit 1; }
+          [[ "$VPS_APP_PATH" =~ ^/[A-Za-z0-9._/-]+$ ]] || { echo "VPS_APP_PATH must be an absolute path without spaces" >&2; exit 1; }
+          [[ "$DEPLOY_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "GitHub deployment SHA is invalid" >&2; exit 1; }
+
+      - name: Configure SSH
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$VPS_SSH_PRIVATE_KEY" > "$HOME/.ssh/deploy_key"
+          chmod 600 "$HOME/.ssh/deploy_key"
+          printf '%s\n' "$VPS_SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+      - name: Deploy the verified main branch
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ssh \
+            -i "$HOME/.ssh/deploy_key" \
+            -p "$VPS_SSH_PORT" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "$VPS_SSH_USER@$VPS_HOST" \
+            "bash -s -- '$VPS_APP_PATH' '$DEPLOY_SHA'" <<'DEPLOY_REMOTE'
+          set -Eeuo pipefail
+          APP_PATH="$1"
+          DEPLOY_SHA="$2"
+          cd "$APP_PATH"
+          git fetch origin main
+          git checkout main
+          git merge --ff-only "$DEPLOY_SHA"
+          if [[ "$(git rev-parse HEAD)" != "$DEPLOY_SHA" ]]; then
+            echo "VPS checkout does not match the verified deployment commit" >&2
+            exit 1
+          fi
+          bash scripts/deploy.sh "$APP_PATH"
+          DEPLOY_REMOTE
