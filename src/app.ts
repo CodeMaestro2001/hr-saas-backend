@@ -6,6 +6,7 @@ import { env } from "./config/env";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler";
 import { attendanceRouter } from "./routes/attendance.routes";
 import { authRouter } from "./routes/auth.routes";
+import { dashboardRouter } from "./routes/dashboard.routes";
 import { employeeRouter } from "./routes/employee.routes";
 import { healthRouter } from "./routes/health.routes";
 import { leaveRouter } from "./routes/leave.routes";
@@ -30,6 +31,7 @@ export const createApp = () => {
 
   app.use("/api/health", healthRouter);
   app.use("/api/auth", authRouter);
+  app.use("/api/dashboard", dashboardRouter);
   app.use("/api/employees", employeeRouter);
   app.use("/api/leaves", leaveRouter);
   app.use("/api/attendance", attendanceRouter);

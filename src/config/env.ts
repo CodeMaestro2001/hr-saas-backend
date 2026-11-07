@@ -25,6 +25,9 @@ const envSchema = z.object({
   PASSWORD_RESET_TTL_MINUTES: z.coerce.number().int().min(10).max(60).default(30),
   LOGIN_MAX_ATTEMPTS: z.coerce.number().int().min(3).max(20).default(5),
   LOGIN_LOCK_MINUTES: z.coerce.number().int().min(1).max(1440).default(15),
+  ANNUAL_LEAVE_ALLOWANCE: z.coerce.number().int().min(0).max(365).default(20),
+  SICK_LEAVE_ALLOWANCE: z.coerce.number().int().min(0).max(365).default(10),
+  CASUAL_LEAVE_ALLOWANCE: z.coerce.number().int().min(0).max(365).default(5),
   FRONTEND_URL: z.preprocess(
     (value) => typeof value === "string" && value.trim() === "" ? undefined : value,
     z.string().url().optional(),
