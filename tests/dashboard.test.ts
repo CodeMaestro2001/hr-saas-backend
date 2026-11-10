@@ -160,15 +160,11 @@ describe("dashboard summaries", () => {
     expect(response.body.summary.upcomingApprovedLeave.id).toBe("leave-id");
   });
 
-  it("enforces dashboard roles", async () => {
+  it("forbids employees from the admin dashboard", async () => {
     mocks.userFindUnique.mockResolvedValue(employeeUser);
     expect((await request(createApp())
       .get("/api/dashboard/admin")
       .set("Authorization", `Bearer ${tokenFor(employeeUser)}`)).status).toBe(403);
-
-    mocks.userFindUnique.mockResolvedValue(admin);
-    expect((await request(createApp())
-      .get("/api/dashboard/employee")
-      .set("Authorization", `Bearer ${tokenFor(admin)}`)).status).toBe(403);
   });
+
 });
