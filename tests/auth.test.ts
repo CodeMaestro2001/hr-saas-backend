@@ -173,6 +173,37 @@ describe("POST /api/auth/login", () => {
   });
 });
 
+describe("POST /api/auth/demo", () => {
+  it("creates an employee demo session without exposing credentials", async () => {
+    env.DEMO_LOGIN_ENABLED = true;
+    env.DEMO_USER_EMAIL = user.email;
+    env.DEMO_USER_PASSWORD = "correct-password";
+    mocks.userFindUnique.mockResolvedValue({
+      ...user,
+      passwordHash,
+      failedLoginAttempts: 0,
+      lockedUntil: null,
+    });
+
+    const response = await request(createApp()).post("/api/auth/demo");
+
+    expect(response.status).toBe(200);
+    expect(response.body.user.role).toBe(Role.EMPLOYEE);
+    expect(response.body).not.toHaveProperty("password");
+    expect(response.headers["set-cookie"][0]).toContain("HttpOnly");
+
+    env.DEMO_LOGIN_ENABLED = false;
+    env.DEMO_USER_EMAIL = undefined;
+    env.DEMO_USER_PASSWORD = undefined;
+  });
+
+  it("is unavailable unless explicitly configured", async () => {
+    env.DEMO_LOGIN_ENABLED = false;
+    const response = await request(createApp()).post("/api/auth/demo");
+    expect(response.status).toBe(404);
+  });
+});
+
 describe("refresh-token lifecycle", () => {
   it("rotates a valid refresh token and issues a new access token", async () => {
     mocks.refreshTokenFindUnique.mockResolvedValue({

@@ -1,4 +1,5 @@
 import type { CookieOptions, Request, RequestHandler, Response } from "express";
+import { Role } from "@prisma/client";
 
 import { env } from "../config/env";
 import * as authService from "../services/auth.service";
@@ -53,6 +54,25 @@ export const login: RequestHandler = async (request, response) => {
     result.data.password,
     getMetadata(request),
   );
+  setRefreshCookie(response, session.refreshToken);
+  response.status(200).json({ token: session.token, user: session.user });
+};
+
+export const demoLogin: RequestHandler = async (request, response) => {
+  if (!env.DEMO_LOGIN_ENABLED || !env.DEMO_USER_EMAIL || !env.DEMO_USER_PASSWORD) {
+    throw new AppError(404, "Demo access is not available");
+  }
+
+  const session = await authService.login(
+    env.DEMO_USER_EMAIL,
+    env.DEMO_USER_PASSWORD,
+    getMetadata(request),
+  );
+  if (session.user.role !== Role.EMPLOYEE) {
+    await authService.revokeRefreshToken(session.refreshToken);
+    throw new AppError(503, "Demo access is not configured safely");
+  }
+
   setRefreshCookie(response, session.refreshToken);
   response.status(200).json({ token: session.token, user: session.user });
 };

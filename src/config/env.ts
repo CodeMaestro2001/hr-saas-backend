@@ -28,6 +28,9 @@ const envSchema = z.object({
   ANNUAL_LEAVE_ALLOWANCE: z.coerce.number().int().min(0).max(365).default(20),
   SICK_LEAVE_ALLOWANCE: z.coerce.number().int().min(0).max(365).default(10),
   CASUAL_LEAVE_ALLOWANCE: z.coerce.number().int().min(0).max(365).default(5),
+  DEMO_LOGIN_ENABLED: z.enum(["true", "false"]).default("false").transform((value) => value === "true"),
+  DEMO_USER_EMAIL: optionalEmail,
+  DEMO_USER_PASSWORD: optionalString,
   FRONTEND_URL: z.preprocess(
     (value) => typeof value === "string" && value.trim() === "" ? undefined : value,
     z.string().url().optional(),

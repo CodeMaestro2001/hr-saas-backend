@@ -2,6 +2,7 @@ import { Router } from "express";
 
 import {
   changePassword,
+  demoLogin,
   forgotPassword,
   getCurrentUser,
   login,
@@ -15,6 +16,7 @@ import { loginRateLimit, passwordResetRateLimit } from "../middleware/auth-rate-
 export const authRouter = Router();
 
 authRouter.post("/login", loginRateLimit, login);
+authRouter.post("/demo", loginRateLimit, demoLogin);
 authRouter.post("/refresh", refresh);
 authRouter.post("/logout", logout);
 authRouter.post("/forgot-password", passwordResetRateLimit, forgotPassword);
