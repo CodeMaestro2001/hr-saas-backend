@@ -31,6 +31,8 @@ const envSchema = z.object({
   DEMO_LOGIN_ENABLED: z.enum(["true", "false"]).default("false").transform((value) => value === "true"),
   DEMO_USER_EMAIL: optionalEmail,
   DEMO_USER_PASSWORD: optionalString,
+  DEMO_ADMIN_EMAIL: optionalEmail,
+  DEMO_ADMIN_PASSWORD: optionalString,
   FRONTEND_URL: z.preprocess(
     (value) => typeof value === "string" && value.trim() === "" ? undefined : value,
     z.string().url().optional(),

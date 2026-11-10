@@ -204,6 +204,38 @@ describe("POST /api/auth/demo", () => {
   });
 });
 
+describe("POST /api/auth/demo-admin", () => {
+  it("creates an administrator demo session without exposing credentials", async () => {
+    const admin = { ...user, role: Role.ADMIN, employee: null };
+    env.DEMO_LOGIN_ENABLED = true;
+    env.DEMO_ADMIN_EMAIL = admin.email;
+    env.DEMO_ADMIN_PASSWORD = "correct-password";
+    mocks.userFindUnique.mockResolvedValue({
+      ...admin,
+      passwordHash,
+      failedLoginAttempts: 0,
+      lockedUntil: null,
+    });
+
+    const response = await request(createApp()).post("/api/auth/demo-admin");
+
+    expect(response.status).toBe(200);
+    expect(response.body.user.role).toBe(Role.ADMIN);
+    expect(response.body).not.toHaveProperty("password");
+    expect(response.headers["set-cookie"][0]).toContain("HttpOnly");
+
+    env.DEMO_LOGIN_ENABLED = false;
+    env.DEMO_ADMIN_EMAIL = undefined;
+    env.DEMO_ADMIN_PASSWORD = undefined;
+  });
+
+  it("is unavailable unless explicitly configured", async () => {
+    env.DEMO_LOGIN_ENABLED = false;
+    const response = await request(createApp()).post("/api/auth/demo-admin");
+    expect(response.status).toBe(404);
+  });
+});
+
 describe("refresh-token lifecycle", () => {
   it("rotates a valid refresh token and issues a new access token", async () => {
     mocks.refreshTokenFindUnique.mockResolvedValue({

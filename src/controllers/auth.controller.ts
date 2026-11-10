@@ -77,6 +77,25 @@ export const demoLogin: RequestHandler = async (request, response) => {
   response.status(200).json({ token: session.token, user: session.user });
 };
 
+export const demoAdminLogin: RequestHandler = async (request, response) => {
+  if (!env.DEMO_LOGIN_ENABLED || !env.DEMO_ADMIN_EMAIL || !env.DEMO_ADMIN_PASSWORD) {
+    throw new AppError(404, "Demo access is not available");
+  }
+
+  const session = await authService.login(
+    env.DEMO_ADMIN_EMAIL,
+    env.DEMO_ADMIN_PASSWORD,
+    getMetadata(request),
+  );
+  if (session.user.role !== Role.ADMIN) {
+    await authService.revokeRefreshToken(session.refreshToken);
+    throw new AppError(503, "Demo access is not configured safely");
+  }
+
+  setRefreshCookie(response, session.refreshToken);
+  response.status(200).json({ token: session.token, user: session.user });
+};
+
 export const refresh: RequestHandler = async (request, response) => {
   const refreshToken = getRefreshCookie(request);
   if (!refreshToken) throw new AppError(401, "Session refresh is required");

@@ -2,6 +2,7 @@ import { Router } from "express";
 
 import {
   changePassword,
+  demoAdminLogin,
   demoLogin,
   forgotPassword,
   getCurrentUser,
@@ -17,6 +18,7 @@ export const authRouter = Router();
 
 authRouter.post("/login", loginRateLimit, login);
 authRouter.post("/demo", loginRateLimit, demoLogin);
+authRouter.post("/demo-admin", loginRateLimit, demoAdminLogin);
 authRouter.post("/refresh", refresh);
 authRouter.post("/logout", logout);
 authRouter.post("/forgot-password", passwordResetRateLimit, forgotPassword);
